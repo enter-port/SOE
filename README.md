@@ -1,12 +1,12 @@
 # ![](media/1909-coffee-bean_32x32.ico) SOE: Sample-Efficient Robot Policy Self-Improvement via On-Manifold Exploration
 
-[[Project page]](https://ericjin2002.github.io/SOE/) <!-- [[Paper]]() --> 
-[[Paper]](https://arxiv.org/pdf/2509.19292)
+[[Project page]](https://ericjin2002.github.io/SOE/)
+[[Paper]](https://arxiv.org/abs/2509.19292)
 [[Code]](https://github.com/EricJin2002/SOE)
 
 ![](media/teaser.svg)
 
-## Installation
+## 🛠️ Installation
 
 1. Create a conda environment and install PyTorch with CUDA support. We recommend using Python 3.8 for better compatibility with the dependencies.
 ```bash
@@ -39,7 +39,7 @@ pip install -e .
 cd ../..
 ```
 
-## Reproducing Simulation Benchmark Results
+## 🖥️ Reproducing Simulation Benchmark Results
 
 ### Dataset Preparation
 
@@ -77,7 +77,7 @@ python run_full_multi_round.py --dataset datasets/transport/ph/image_v141.hdf5 -
 ```
 
 
-## Running on a Real Robot
+## 🤖 Running on a Real Robot
 
 For real-world experiments, we employ a Flexiv Rizon 4 robot arm equipped with a Robotiq 2F-85 gripper. The gripper fingers have been replaced with custom TPU soft fingers. We utilize two Intel RealSense D435i depth cameras for perception: one mounted on the robot wrist (eye-in-hand) and the other positioned to provide a side view (third-person). A Force Dimension Sigma.7 haptic interface is used to teleoperate the robot and collect demonstrations.
 
@@ -122,11 +122,11 @@ After data collection, use `realworld/clean_data.py` and `realworld/clean_failur
 
 The policy improvement step is the same as training. The only difference is that the training data for improvement includes both the original expert demonstrations and the successful exploration data collected in the previous step. Please refer to the policy tranining section for details. The cycle of exploration and improvement can be repeated for multiple rounds, leading to continuous policy enhancement.
 
-## Acknowledgement
+## 🙏 Acknowledgement
 
 Our code is built upon [SIME](https://github.com/EricJin2002/SIME), [Diffusion Policy](https://github.com/real-stanford/diffusion_policy), [RISE](https://github.com/rise-policy/rise), [robomimic](https://github.com/ARISE-Initiative/robomimic), [S2I](https://github.com/Junxix/S2I), and [VQ-BeT](https://github.com/jayLEE0301/vq_bet_official). We thank the authors for their open-sourcing efforts, which greatly facilitate our research.
 
-## Citation
+## 🔗 Citation
 
 If you find this code useful, please consider citing our paper.
 
