@@ -1,6 +1,8 @@
 # ![](media/1909-coffee-bean_32x32.ico) SOE: Sample-Efficient Robot Policy Self-Improvement via On-Manifold Exploration
 
-[[Project page]](https://ericjin2002.github.io/SOE/) <!-- [[Paper]]() --> [[Code]](https://github.com/EricJin2002/SOE)
+[[Project page]](https://ericjin2002.github.io/SOE/) <!-- [[Paper]]() --> 
+[[Paper]](https://arxiv.org/pdf/2509.19292)
+[[Code]](https://github.com/EricJin2002/SOE)
 
 ![](media/teaser.svg)
 
@@ -106,7 +108,7 @@ To evaluate the policy, run the command below. For a full list of arguments, ple
 python eval.py --config /path/to/logs/task/timestamp/config.json --ckpt /path/to/logs/task/timestamp/ckpt/policy_last.ckpt --num_action 20 --num_inference_step 20 --max_steps 1000 --seed 233 --discretize_rotation --ensemble_mode act --vis --record --record_path /path/to/record/path
 ```
 
-## Exploration and Data Collection
+### Exploration and Data Collection
 
 To enable online exploration, add the `--enable_exploration` flag. We provide two exploration modes:
 - *SOE (Default)*: This is the default mode. We recommend setting `--noise_scale` between 1.0 and 2.0 for optimal performance.
@@ -116,7 +118,7 @@ During exploration, you can use keyboard inputs for human-in-the-loop steering. 
 
 After data collection, use `realworld/clean_data.py` and `realworld/clean_failure.py` to filter the results. Episodes with successful task completions and transitions with non-stop actions are then utilized for the next round of policy training.
 
-## Policy Improvement
+### Policy Improvement
 
 The policy improvement step is the same as training. The only difference is that the training data for improvement includes both the original expert demonstrations and the successful exploration data collected in the previous step. Please refer to the policy tranining section for details. The cycle of exploration and improvement can be repeated for multiple rounds, leading to continuous policy enhancement.
 
@@ -134,5 +136,14 @@ If you find this code useful, please consider citing our paper.
   author={Jin, Yang and Lv, Jun and Xue, Han and Chen, Wendi and Wen, Chuan and Lu, Cewu},
   journal={arXiv preprint arXiv:2509.19292},
   year={2025}
+}
+
+@inproceedings{jin2025sime,
+  title={Sime: Enhancing policy self-improvement with modal-level exploration},
+  author={Jin, Yang and Lv, Jun and Yu, Wenye and Fang, Hongjie and Li, Yong-Lu and Lu, Cewu},
+  booktitle={2025 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages={9792--9799},
+  year={2025},
+  organization={IEEE}
 }
 ```
