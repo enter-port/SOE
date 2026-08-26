@@ -67,7 +67,6 @@ def _load_policy_and_env(cfg, agent_path, explore, noise_scale, horizon):
     import robomimic.utils.obs_utils as ObsUtils
     import robomimic.utils.env_utils as EnvUtils
     import robomimic.utils.file_utils as FileUtils
-    from robomimic.environments.env_base import EnvBase  # noqa: F401 (rollout asserts)
     from rollout_utils import RolloutDP
     from policy.dp_ext import DPExt
 
