@@ -451,6 +451,8 @@ def main():
     o.add_argument("--metrics-json", default=None)
     o.add_argument("--wandb-project", default=None)
     o.add_argument("--wandb-run-name", default=None)
+    o.add_argument("--abs-action", dest="abs_action", action="store_true",
+                   default=True)
     o.set_defaults(fn=orchestrate)
 
     w = sub.add_parser("worker")
