@@ -16,6 +16,7 @@ src/logs
 realworld/calib/out
 
 # configs
-simulation/config_template
+simulation/config_template/*
+!simulation/config_template/can_soe.json
 src/config
 realworld/config
