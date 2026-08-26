@@ -22,7 +22,8 @@ echo "[coredeps $(date)]"
 uv pip install --python "$PY" --index-url $MIRROR \
   numpy==1.24.4 easydict==1.13 einops==0.7.0 tqdm matplotlib==3.7.5 \
   opencv-python==4.9.0.80 h5py imageio imageio-ffmpeg pillow scipy click \
-  diffusers==0.27.2 huggingface-hub==0.24.6 wandb "zarr<3" "mujoco<3"
+  diffusers==0.27.2 huggingface-hub==0.24.6 wandb "zarr<3" "mujoco<3" \
+  termcolor enum-compat "numba<0.60"
 
 echo "[pytorch3d wheel $(date)]"
 curl -sfI "$P3D_WHL" >/dev/null && \
