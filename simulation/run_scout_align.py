@@ -187,20 +187,14 @@ def worker_main(a):
             print("[worker p%d] ep %d scene %d success=%s len=%d %.1fs" % (
                 a.phase, idx, scene, float(stats["Success_Rate"]),
                 traj["actions"].shape[0], time.time() - t0), flush=True)
-            if a.phase == 1 and a.dump_env_meta and not os.path.exists(
-                    os.path.join(os.path.dirname(out_path), "env_meta_used.json")):
-                meta = {
-                    "env_name": type(env).__name__,
-                    "env_kwargs": env.serialize()["env_kwargs"]
-                    if hasattr(env, "serialize") else {},
-                }
-                try:
-                    ser = env.serialize()
-                    with open(os.path.join(os.path.dirname(out_path),
-                                           "env_meta_used.json"), "w") as f:
-                        json.dump(ser, f, indent=4)
-                except Exception:
-                    pass
+            if a.phase == 1 and a.dump_env_meta:
+                emp = os.path.join(os.path.dirname(out_path), "env_meta_used.json")
+                if not os.path.exists(emp):
+                    try:
+                        with open(emp, "w") as f:
+                            json.dump(env.serialize(), f, indent=4)
+                    except Exception as e:
+                        print("[worker] env.serialize failed: %s" % e)
     with open(done_marker, "w") as f:
         f.write("ok\n")
     return 0
@@ -213,14 +207,17 @@ def _episodes_in(path):
         return {int(k.split("_")[1]) for k in f.keys() if k.startswith("ep_")}
 
 
-def _run_phase(a, phase, episode_lists, extra_env, init_file=None, log_tag=""):
-    """Spawn one worker per episode list; return dict of rc per shard."""
+def _run_phase(a, phase, episode_lists, extra_env, init_file=None, tag=""):
+    """Spawn one worker per episode list; return dict of rc per shard.
+
+    ``tag`` separates retry passes ("" or "_retry") so a recovery worker
+    never truncates a previous shard file (h5py "w" mode)."""
     n_shards = len(episode_lists)
-    procs, outs = [], []
+    procs = []
     for k, eps in enumerate(episode_lists):
         if not eps:
             continue
-        out_file = os.path.join(a.out_dir, "shard_%d_phase%d.hdf5" % (k, phase))
+        out_file = os.path.join(a.out_dir, "shard_%d_phase%d%s.hdf5" % (k, phase, tag))
         cmd = [sys.executable, os.path.abspath(__file__), "worker",
                "--phase", str(phase), "--config", a.config, "--agent", a.agent,
                "--out-file", out_file,
@@ -236,26 +233,30 @@ def _run_phase(a, phase, episode_lists, extra_env, init_file=None, log_tag=""):
             cmd += ["--dump-env-meta"]
         env = dict(os.environ)
         env.update(extra_env)
-        logf = open(os.path.join(a.out_dir, "shard_%d_phase%d.%s.log" % (k, phase, log_tag))
-                    if log_tag else
-                    os.path.join(a.out_dir, "shard_%d_phase%d.log" % (k, phase)), "w")
+        logf = open(os.path.join(a.out_dir, "shard_%d_phase%d%s.log" % (k, phase, tag)), "w")
         p = subprocess.Popen(cmd, stdout=logf, stderr=subprocess.STDOUT, env=env)
         procs.append((k, p, logf))
-        outs.append(out_file)
     rcs = {}
     for k, p, logf in procs:
         rcs[k] = p.wait()
         logf.close()
-    return rcs, outs
+    return rcs
+
+
+def _shard_files(a, phase):
+    import glob
+    return sorted(glob.glob(os.path.join(
+        a.out_dir, "shard_*_phase%d*.hdf5" % phase)))
 
 
 def _retry_missing(a, phase, expected, extra_env, init_file=None):
-    """One recovery pass at reduced concurrency for missing episodes."""
+    """One recovery pass at reduced concurrency for missing episodes.
+
+    Worker rc's are irrelevant here -- episode presence is re-scanned from
+    the shard files afterwards."""
     have = set()
-    for k in range(1000):
-        p = os.path.join(a.out_dir, "shard_%d_phase%d.hdf5" % (k, phase))
-        if os.path.exists(p):
-            have |= _episodes_in(p)
+    for p in _shard_files(a, phase):
+        have |= _episodes_in(p)
     missing = sorted(set(expected) - have)
     if not missing:
         return True
@@ -263,27 +264,18 @@ def _retry_missing(a, phase, expected, extra_env, init_file=None):
         phase, len(missing), missing[:20]), flush=True)
     half = max(1, len(missing) // 2 + 1)
     lists = [missing[:half], missing[half:]]
-    rcs, _ = _run_phase(a, phase, lists, extra_env, init_file=init_file,
-                        log_tag="retry")
+    _run_phase(a, phase, lists, extra_env, init_file=init_file, tag="_retry")
     have = set()
-    for k in range(1000):
-        p = os.path.join(a.out_dir, "shard_%d_phase%d.hdf5" % (k, phase))
-        if os.path.exists(p):
-            have |= _episodes_in(p)
-    ok = set(missing) <= have
-    return ok
+    for p in _shard_files(a, phase):
+        have |= _episodes_in(p)
+    return set(missing) <= have
 
 
 def merge_demo(a, expected, demo_path):
     """Assemble demo.hdf5 in SOE run.py layout from the shard files."""
     shard_files = {}
-    for k in range(1000):
-        p = os.path.join(a.out_dir, "shard_%d_phase%d.hdf5" % (k, 1))
-        if os.path.exists(p):
-            for e in _episodes_in(p):
-                shard_files[e] = p
-        p = os.path.join(a.out_dir, "shard_%d_phase%d.hdf5" % (k, 2))
-        if os.path.exists(p):
+    for phase in (1, 2):
+        for p in _shard_files(a, phase):
             for e in _episodes_in(p):
                 shard_files[e] = p
     missing = [e for e in expected if e not in shard_files]
@@ -338,21 +330,19 @@ def orchestrate(a):
     print("[orchestrate] phase 1: %d scenes over %d shards" % (
         a.n_scenes, a.n_shards), flush=True)
     t0 = time.time()
-    rcs, _ = _run_phase(a, 1, shard_lists, extra_env)
-    bad = {k: r for k, r in rcs.items() if r != 0}
-    if bad or not _retry_missing(a, 1, scenes, extra_env):
-        raise RuntimeError("phase 1 failed, worker rcs=%s" % bad)
+    _run_phase(a, 1, shard_lists, extra_env)
+    if not _retry_missing(a, 1, scenes, extra_env):
+        raise RuntimeError("phase 1 incomplete after recovery pass")
     print("[orchestrate] phase 1 done in %.1fs" % (time.time() - t0), flush=True)
 
     success = {}
     init_src = {}
-    for k in range(1000):
-        p = os.path.join(a.out_dir, "shard_%d_phase1.hdf5" % k)
-        if os.path.exists(p):
-            with h5py.File(p, "r") as f:
-                for e in _episodes_in(p):
-                    g = f["ep_%d/traj" % e]
-                    success[e] = bool(np.any(g["dones"][()]))
+    for p in _shard_files(a, 1):
+        with h5py.File(p, "r") as f:
+            for e in _episodes_in(p):
+                g = f["ep_%d/traj" % e]
+                success[e] = bool(np.any(g["dones"][()]))
+                if e not in init_src:
                     init_src[e] = p
     baseline_solved = sum(success.values())
     sr = baseline_solved / float(a.n_scenes)
@@ -374,11 +364,9 @@ def orchestrate(a):
     t0 = time.time()
     if retry_idx:
         shard_lists = [retry_idx[i::a.n_shards] for i in range(a.n_shards)]
-        rcs, _ = _run_phase(a, 2, shard_lists, extra_env, init_file=init_file)
-        bad = {k: r for k, r in rcs.items() if r != 0}
-        if bad or not _retry_missing(a, 2, retry_idx, extra_env,
-                                     init_file=init_file):
-            raise RuntimeError("phase 2 failed, worker rcs=%s" % bad)
+        _run_phase(a, 2, shard_lists, extra_env, init_file=init_file)
+        if not _retry_missing(a, 2, retry_idx, extra_env, init_file=init_file):
+            raise RuntimeError("phase 2 incomplete after recovery pass")
     print("[orchestrate] phase 2 done in %.1fs (%d retries)" % (
         time.time() - t0, len(retry_idx)), flush=True)
 
@@ -392,13 +380,11 @@ def orchestrate(a):
     rescued_scenes = 0
     rescued_trajs = 0
     retry_success = {}
-    for k in range(1000):
-        p = os.path.join(a.out_dir, "shard_%d_phase2.hdf5" % k)
-        if os.path.exists(p):
-            with h5py.File(p, "r") as f:
-                for e in _episodes_in(p):
-                    g = f["ep_%d/traj" % e]
-                    retry_success[e] = bool(np.any(g["dones"][()]))
+    for p in _shard_files(a, 2):
+        with h5py.File(p, "r") as f:
+            for e in _episodes_in(p):
+                g = f["ep_%d/traj" % e]
+                retry_success[e] = bool(np.any(g["dones"][()]))
     for i in failed:
         s = any(retry_success.get(a.n_scenes + i * a.try_times + j, False)
                 for j in range(a.try_times))

@@ -131,6 +131,7 @@ TCFG="$LOGROOT/$TRY/config.json"
 [ -f "$CKPT" ] || { log "FATAL: ckpt missing $CKPT"; exit 1; }
 
 # ---- [2/2] eval + rescue + combine ------------------------------------ #
+WNAME="SOE-s${TSEED}-round$((K+1))"
 if [ -f "$RDIR/demo_plus_core.hdf5" ]; then
   log "[2/2] eval SKIP (demo_plus_core.hdf5 exists)"
   log "=== ROUND $TASK soe-seed=$TSEED soe-round=$K TOTAL: $(( $(date +%s) - T0 ))s ==="
@@ -140,7 +141,6 @@ if [ "$SKIP_ROLLOUT" = "1" ]; then
   [ -f "$RDIR/demo.hdf5" ] || { log "FATAL: SKIP_ROLLOUT=1 but $RDIR/demo.hdf5 missing"; exit 1; }
   log "[2/2] rollout SKIP (SKIP_ROLLOUT=1, reusing $RDIR/demo.hdf5)"
 else
-  WNAME="SOE-s${TSEED}-round$((K+1))"
   NS_NOW=$NSHARDS
   for ATTEMPT in 1 2; do
     log "[2/2] rollout attempt $ATTEMPT: scenes=$SCENES seeds=$BASE_SEED.. tries=$ETRIES horizon=$HORIZON noise=$NOISE shards=$NS_NOW ckpt=$CKPT -> $RDIR"
