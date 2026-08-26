@@ -126,6 +126,38 @@ def _write_episode(fout, idx, traj, with_init):
             ig.attrs["model_file"] = isd["model"]
 
 
+def _patch_robosuite_render_rebind():
+    """Re-bind the EGL context before every mujoco render/readPixels call.
+
+    robosuite 1.4.1's MjRenderContext only calls gl_ctx.make_current() at
+    init and in upload_texture; render/read_pixels assume the binding is
+    still current on this thread. Anything that releases the thread's EGL
+    state mid-run (another context's delayed GC finalizer calls
+    eglReleaseThread / eglMakeCurrent(NO_CONTEXT)) then makes the next
+    mjr_readPixels abort the whole worker (SIGABRT via mju_error). An
+    explicit make_current() per call is idempotent and cheap."""
+    from robosuite.utils import binding_utils as bu
+    if getattr(bu, "_soe_rebind_patched", False):
+        return
+    bu._soe_rebind_patched = True
+    classes = [bu.MjRenderContext]
+    if hasattr(bu, "MjRenderContextOffscreen"):
+        classes.append(bu.MjRenderContextOffscreen)
+    for cls in classes:
+        for name in ("render", "read_pixels"):
+            orig = getattr(cls, name, None)
+            if orig is None:
+                continue
+
+            def make_patched(orig_fn):
+                def patched(self, *args, **kwargs):
+                    self.gl_ctx.make_current()
+                    return orig_fn(self, *args, **kwargs)
+                return patched
+
+            setattr(cls, name, make_patched(orig))
+
+
 def worker_main(a):
     import faulthandler
     faulthandler.enable()
@@ -133,6 +165,8 @@ def worker_main(a):
     from easydict import EasyDict
     from rollout_utils import rollout
     from rotation_transformer import RotationTransformer
+
+    _patch_robosuite_render_rebind()
 
     with open(a.config, "r") as f:
         cfg = EasyDict(json.load(f))
