@@ -161,6 +161,11 @@ def _patch_robosuite_render_rebind():
 def worker_main(a):
     import faulthandler
     faulthandler.enable()
+    import gc
+    # cyclic-GC finalizers of stale GL bindings release the thread's EGL
+    # state mid-run -> mjr_readPixels aborts (observed ~1/2k renders on
+    # this driver stack); obs buffers are acyclic so refcounting suffices
+    gc.disable()
     import torch
     from easydict import EasyDict
     from rollout_utils import rollout
