@@ -253,6 +253,8 @@ def _run_phase(a, phase, episode_lists, extra_env, init_file=None, tag=""):
     rcs = {}
     for k, p, logf in procs:
         rcs[k] = p.wait()
+        print("[orchestrate] worker shard=%d phase rc=%s" % (k, p.returncode),
+              flush=True)
         logf.close()
     return rcs
 
