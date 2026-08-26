@@ -110,6 +110,18 @@ else
       --log-dir "$LOGROOT" --out "$CFG" \
       --num-epochs "$EP" --save-epochs "$SV" --num-workers "$WORKERS"
   if [ "$DRY_RUN" != "1" ]; then
+    # live-stream the loss curve so the wandb project/run exists from the
+    # first minutes of training (waits for the try dir via --auto; the
+    # post-hoc upload below stays as a net -- state file dedupes)
+    if [ -n "$RID" ]; then
+      nohup "$VENV" "$SOE_SCRIPTS_2/wandb_train_log.py" --tail --auto \
+          --log-txt "$LOGROOT" --project "$WPROJ" --run-id "$RID" \
+          --tail-max-min 600 >> "$TRAIN/wandb_tail.log" 2>&1 &
+    else
+      nohup "$VENV" "$SOE_SCRIPTS_2/wandb_train_log.py" --tail --auto \
+          --log-txt "$LOGROOT" --project "$WPROJ" --run-name "$WBASE" \
+          --config-json "$CFG" --tail-max-min 600 >> "$TRAIN/wandb_tail.log" 2>&1 &
+    fi
     ( cd "$SOE_REPO/src" && CUDA_VISIBLE_DEVICES=$GPU "$VENV" train_single_gpu.py \
         --config "$CFG" ) >> "$TRAIN/train.log" 2>&1
     rc=$?
