@@ -141,6 +141,12 @@ def worker_main(a):
         torch.cuda.manual_seed_all(a.torch_seed)
 
     episodes = [int(x) for x in a.episodes.split(",") if x != ""]
+    # stagger EGL/CUDA context creation across concurrently spawned workers
+    # (simultaneous offscreen-EGL inits on one device are fragile)
+    delay = float(os.environ.get("SOE_SHARD_DELAY", "0"))
+    if delay > 0:
+        print("[worker] waiting %.0fs before env/policy init" % delay, flush=True)
+        time.sleep(delay)
     explore = a.phase == 2
     policy, env = _load_policy_and_env(
         cfg, a.agent, explore=explore,
@@ -202,8 +208,15 @@ def worker_main(a):
 def _episodes_in(path):
     if not os.path.exists(path):
         return set()
-    with h5py.File(path, "r") as f:
-        return {int(k.split("_")[1]) for k in f.keys() if k.startswith("ep_")}
+    try:
+        with h5py.File(path, "r") as f:
+            return {int(k.split("_")[1]) for k in f.keys() if k.startswith("ep_")}
+    except OSError:
+        # truncated shard from a hard-killed worker: treat as empty so the
+        # recovery pass can redo those episodes
+        print("[orchestrate] WARNING: unreadable shard %s (truncated?)" % path,
+              flush=True)
+        return set()
 
 
 def _run_phase(a, phase, episode_lists, extra_env, init_file=None, tag=""):
@@ -217,7 +230,7 @@ def _run_phase(a, phase, episode_lists, extra_env, init_file=None, tag=""):
         if not eps:
             continue
         out_file = os.path.join(a.out_dir, "shard_%d_phase%d%s.hdf5" % (k, phase, tag))
-        cmd = [sys.executable, os.path.abspath(__file__), "worker",
+        cmd = [sys.executable, "-u", os.path.abspath(__file__), "worker",
                "--phase", str(phase), "--config", a.config, "--agent", a.agent,
                "--out-file", out_file,
                "--episodes", ",".join(str(e) for e in eps),
@@ -232,8 +245,10 @@ def _run_phase(a, phase, episode_lists, extra_env, init_file=None, tag=""):
             cmd += ["--dump-env-meta"]
         env = dict(os.environ)
         env.update(extra_env)
+        env["SOE_SHARD_DELAY"] = str(4 * k)
         logf = open(os.path.join(a.out_dir, "shard_%d_phase%d%s.log" % (k, phase, tag)), "w")
-        p = subprocess.Popen(cmd, stdout=logf, stderr=subprocess.STDOUT, env=env)
+        p = subprocess.Popen(cmd, stdout=logf, stderr=subprocess.STDOUT,
+                             stdin=subprocess.DEVNULL, env=env)
         procs.append((k, p, logf))
     rcs = {}
     for k, p, logf in procs:
