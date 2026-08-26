@@ -43,7 +43,7 @@ import h5py
 
 SIM_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SIM_DIR)
-sys.path.insert(os.path.join(SIM_DIR, "..", "src"))
+sys.path.insert(0, os.path.join(SIM_DIR, "..", "src"))
 
 
 def _ns(**kw):
