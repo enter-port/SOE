@@ -127,6 +127,8 @@ def _write_episode(fout, idx, traj, with_init):
 
 
 def worker_main(a):
+    import faulthandler
+    faulthandler.enable()
     import torch
     from easydict import EasyDict
     from rollout_utils import rollout
