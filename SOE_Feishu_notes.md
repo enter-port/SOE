@@ -1,0 +1,29 @@
+# [2509.19292] SOE: Sample-Efficient Robot Policy Self-Improvement via On-Manifold Exploration
+
+- 核心想法：把探索限制在「有效动作流形」上，而非在 action 空间直接加噪声
+  - 学一个观测的紧凑潜表示 $Z$（只保留任务相关信息），在 $Z$ 上采样做探索
+  - DP 本身约束 action → 采样动作仍落在 policy 分布支集上，保证安全 / 平滑
+- 优化目标（VIB 形式，对应上文 $X=O,\,Y=A$）：
+  - $$\max_\theta I(Z;A) - \beta I(Z;O)$$
+  - 变分上界：
+  - $$\mathcal{L}_{IB} = \underbrace{\mathbb{E}_{(o,a)\sim D}\big[-\log q_\phi(a|z)\big]}_{\text{① 动作重建（逼 }Z\text{ 保留任务信息）}} + \underbrace{\beta\,KL[p_\theta(Z|o)\Vert r(Z)]}_{\text{② KL 正则（紧凑）}}$$
+    - $p_\theta(z|o)$：编码器（对角高斯 $\mu,\sigma$）；$q_\phi(a|z)$：解码器；$r(Z)=\mathcal N(0,I)$
+- 计算细节：$-\log q_\phi(a|z)$ 怎么落地
+  - $q_\phi(a|z)$ 是**以 $z$ 为条件的扩散模型**，非解析分布，不能直接代入求 log
+  - 由 DDPM 变分上界，负对数似然 ≈ 噪声预测 MSE（只抽一个随机时间步 $t$）：
+  - $$-\log q_\phi(a|z) \approx \underbrace{\big\|\varepsilon - \hat\varepsilon_\phi(a_t,\,t,\,z)\big\|^2}_{\text{条件 }z\to\tilde c=q_\phi(z)}$$
+    - $a_t=\sqrt{\bar\alpha_t}\,a+\sqrt{1-\bar\alpha_t}\,\varepsilon$；$z\to\tilde c$ 作条件喂给共享 $D$
+  - 第②项为解析 KL：$\beta\,KL=-\tfrac{\beta}{2}\sum_i\big(1+\log\sigma_i^2-\mu_i^2-\sigma_i^2\big)$
+  - 关键：$L_{IB}$ 第①项 = $L_{IL}$ 同款扩散去噪 MSE，**只换了条件**（$c\to\tilde c$）→ 故称 $L_{IB(IL)}$
+- 以插件形式接入 Diffusion Policy（双路径，共用观测编码器 $E$ 与动作解码器 $D$）：
+  - base 路径：$c=E(o)\to D\to a$，损失 $\mathcal L_{IL}$
+  - 探索路径：$c \xrightarrow{p_\theta}(\mu,\sigma)\to z\xrightarrow{q_\phi}\tilde c\to D\to a$，损失 $\mathcal L_{IB}$
+  - $$\mathcal L = \underbrace{\mathcal L_{IL}(\psi)}_{\text{只更新 }E,D} + \underbrace{\mathcal L_{IB}(\theta,\phi)}_{\text{只更新 }p_\theta,q_\phi}$$
+  - 梯度隔离：探索路径输入取 $c.\mathrm{detach}()$，且反传 $\mathcal L_{IB}$ 时冻结 $D$ → 探索模块训练不破坏 base policy
+  - [图片]（双路径结构图，论文 Fig.2）
+- 探索（test-time）：
+  - $$z_t\sim\mathcal N(\mu_t,(\alpha\sigma_t)^2),\quad \tilde c_t=q_\phi(z_t),\quad a_t=D(\tilde c_t)$$
+  - $\alpha$（noise_scale）控制探索幅度；训练时 $\alpha=1$，仅推理时放大
+- 用户引导（steering）：
+  - 有效维度：$SNR_i = Var(\mu_i)/\mathbb E[\sigma_i^2]$，只在高 SNR 维上扰动
+  - 不同维 ≈ 不同任务因子（水平 / 竖直位置等）→ 可控探索
