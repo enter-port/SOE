@@ -98,7 +98,7 @@ fi
 # ---- [1/2] train ------------------------------------------------------ #
 TRY=""
 if [ "$FORCE_TRAIN" != "1" ]; then
-  TRY=$("$VENV" "$SOE_SCRIPTS_2/soe_round_step.py" latest_try --log-root "$LOGROOT" 2>/dev/null || true)
+  TRY=$("$VENV" "$SOE_SCRIPTS_2/soe_round_step.py" latest_try --log-root "$LOGROOT" 2>/dev/null | tail -1 || true)
 fi
 if [ -n "$TRY" ] && [ -f "$LOGROOT/$TRY/ckpt/policy_last.ckpt" ]; then
   log "[1/2] train SKIP (existing ckpt in try $TRY)"
@@ -127,7 +127,7 @@ else
     rc=$?
     if [ $rc -ne 0 ]; then log "FATAL: train rc=$rc (see $TRAIN/train.log)"; exit 1; fi
   fi
-  TRY=$("$VENV" "$SOE_SCRIPTS_2/soe_round_step.py" latest_try --log-root "$LOGROOT")
+  TRY=$("$VENV" "$SOE_SCRIPTS_2/soe_round_step.py" latest_try --log-root "$LOGROOT" | tail -1)
   # upload loss curve into the round's shared run (BASE run for k=0)
   if [ -n "$RID" ]; then
     run "$VENV" "$SOE_SCRIPTS_2/wandb_train_log.py" --log-txt "$LOGROOT/$TRY/log.txt" \

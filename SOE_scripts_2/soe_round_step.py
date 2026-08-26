@@ -28,11 +28,13 @@ if not os.path.isdir(SIM_DIR):  # deployed flat (baojiachun/SOE_scripts_2)
                            "simulation")
 sys.path.insert(0, SIM_DIR)
 
-from extract_useful_data import extract_useful_data_v2  # noqa: E402
-from dataset_combine import combine_dataset             # noqa: E402
-
 
 def extract_and_combine(a):
+    # deferred: importing SOE's simulation utils pulls in robomimic, whose
+    # macros banner prints to STDOUT -- captured by round_soe.sh's $(...)
+    # it would pollute the latest_try output (2026-08-26 chain FATAL)
+    from extract_useful_data import extract_useful_data_v2
+    from dataset_combine import combine_dataset
     demo = a.demo
     plus = os.path.join(os.path.dirname(demo), "demo_plus_core.hdf5")
     extract_useful_data_v2(demo, "success", start_index=a.n_rollouts)
