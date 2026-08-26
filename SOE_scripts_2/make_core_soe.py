@@ -48,8 +48,14 @@ def extract_core(abs_path, out, indices):
             din.copy("demo_%d" % src_id, dout, name="demo_%d" % new_id)
             total += din["demo_%d/actions" % src_id].shape[0]
         dout.attrs["total"] = total
-        mask = fout.create_group("mask").create_group("core_20")
-        mask.create_dataset("demos", data=np.arange(len(indices), dtype=np.int64))
+    # write mask/core_20 with robomimic's own writer -- robomimic_v2 reads
+    # mask/<key> directly as an iterable of b"demo_i" keys, so the format
+    # must match robomimic's create_hdf5_filter_key byte-for-byte
+    from robomimic.utils.file_utils import create_hdf5_filter_key
+    lengths = create_hdf5_filter_key(
+        hdf5_path=out,
+        demo_keys=["demo_%d" % i for i in range(len(indices))],
+        key_name="core_20")
     print("wrote %s: %d demos, %d steps, indices=%s" % (out, len(indices), total, indices))
     return total
 
