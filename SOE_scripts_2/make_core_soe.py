@@ -34,7 +34,10 @@ def build_abs(src, out, workers):
 def extract_core(abs_path, out, indices):
     with h5py.File(abs_path, "r") as fin, h5py.File(out, "w") as fout:
         for k in fin:
-            if k == "data":
+            # skip data (rebuilt below) and any existing mask groups -- the
+            # source's masks index 200 demos and are invalid in the 20-demo
+            # core; mask/core_20 is written fresh instead.
+            if k in ("data", "mask"):
                 continue
             fin.copy(k, fout)
         din, dout = fin["data"], fout.create_group("data")
