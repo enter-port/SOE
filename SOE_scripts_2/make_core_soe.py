@@ -23,6 +23,10 @@ import h5py
 
 SIM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                        "simulation")
+if not os.path.isdir(SIM_DIR):  # deployed flat (baojiachun/SOE_scripts_2)
+    SIM_DIR = os.path.join(os.environ.get("SOE_REPO",
+                                          "/root/workspace/baojiachun/SOE"),
+                           "simulation")
 
 
 def build_abs(src, out, workers):

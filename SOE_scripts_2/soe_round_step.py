@@ -22,6 +22,10 @@ from easydict import EasyDict
 
 SIM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
                        "simulation")
+if not os.path.isdir(SIM_DIR):  # deployed flat (baojiachun/SOE_scripts_2)
+    SIM_DIR = os.path.join(os.environ.get("SOE_REPO",
+                                          "/root/workspace/baojiachun/SOE"),
+                           "simulation")
 sys.path.insert(0, SIM_DIR)
 
 from extract_useful_data import extract_useful_data_v2  # noqa: E402
