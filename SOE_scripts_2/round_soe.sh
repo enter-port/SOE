@@ -45,6 +45,13 @@ NSHARDS_RETRY=${NSHARDS_RETRY:-4}
 EP0=${EP0:-1000};  SAVE0=${SAVE0:-50}
 EPOCHS=${EPOCHS:-1000}; SAVE=${SAVE:-50}
 WORKERS=${WORKERS:-8}
+# VISGATE: 1 = run the vis_validate_soe render gate (thresholds calibrated on
+# CAN: agentview tstd>20 = noise, <1 = frozen). 0 = skip the gate entirely.
+# SQUARE must run with VISGATE=0: healthy square tstd is 17.6-27.4 (measured
+# 08-26 on square core re-renders), overlapping can's >20 noise line -- the
+# gate false-killed both square SCOUT arms on 08-26 and the user ruled it off
+# for square (same ruling applies here).
+VISGATE=${VISGATE:-1}
 DRY_RUN=${DRY_RUN:-0}
 SKIP_ROLLOUT=${SKIP_ROLLOUT:-0}
 FORCE_TRAIN=${FORCE_TRAIN:-0}
@@ -58,7 +65,7 @@ LOGROOT="$TRAIN/logs/round_${K}_seed_${TSEED}"
 RDIR="$D/rollout/round_$K"
 PREV_RDIR="$D/rollout/round_$((K-1))"
 CORE="$DATASETS/${TASK}_core_soe_s${TSEED}.hdf5"
-TEMPLATE="$SOE_REPO/simulation/config_template/can_soe.json"
+TEMPLATE=${TEMPLATE:-$SOE_REPO/simulation/config_template/${TASK}_soe.json}
 mkdir -p "$D" "$TRAIN"
 
 log() {
@@ -174,6 +181,10 @@ else
       log "FATAL: rollout rc=$rc (see $RDIR/rollout.stdout)"; exit 1
     fi
     if [ "$DRY_RUN" != "1" ]; then
+      if [ "$VISGATE" != "1" ]; then
+        log "[2/2] render gate SKIPPED (VISGATE=0; square mode)"
+        break
+      fi
       if "$VENV" "$SOE_SCRIPTS_2/vis_validate_soe.py" "$RDIR/demo.hdf5" > "$RDIR/validate.log" 2>&1; then
         log "[2/2] rollout images HEALTHY (attempt $ATTEMPT, shards=$NS_NOW)"
         break

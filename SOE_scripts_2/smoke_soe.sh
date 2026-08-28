@@ -13,6 +13,8 @@
 set -u
 
 : "${GPU:?GPU required}" "${TSEED:?TSEED required}"
+TASK=${TASK:-can}
+HORIZON=${HORIZON:-300}   # square: 500 (matches SCOUT square eval horizon)
 SOE_REPO=${SOE_REPO:-/root/workspace/baojiachun/SOE}
 SOE_SCRIPTS_2=${SOE_SCRIPTS_2:-/root/workspace/baojiachun/SOE_scripts_2}
 VENV=${VENV:-/root/workspace/baojiachun/.venv_soe/bin/python}
@@ -34,12 +36,12 @@ print("imports OK")
 PY
 ) || { echo "IMPORTS FAILED"; exit 1; }
 
-CORE="$DATASETS/can_core_soe_s${TSEED}.hdf5"
+CORE="$DATASETS/${TASK}_core_soe_s${TSEED}.hdf5"
 [ -f "$CORE" ] || { echo "core missing: $CORE (run make_core_soe.py first)"; exit 1; }
 
 step "2/6 train 2 epochs"
 TR="$SMOKE_ROOT/train"; rm -rf "$TR"; mkdir -p "$TR"
-"$VENV" "$SOE_SCRIPTS_2/gen_config_soe.py" --template "$SOE_REPO/simulation/config_template/can_soe.json" \
+"$VENV" "$SOE_SCRIPTS_2/gen_config_soe.py" --template "$SOE_REPO/simulation/config_template/${TASK}_soe.json" \
   --seed "$TSEED" --dataset "$CORE" --filter-key core_20 \
   --log-dir "$TR/logs/smoke_seed_${TSEED}" --out "$TR/cfg.json" \
   --num-epochs 2 --save-epochs 1 --num-workers 4 || exit 1
@@ -56,7 +58,7 @@ RD="$SMOKE_ROOT/rollout"; rm -rf "$RD"; mkdir -p "$RD"
   CUDA_VISIBLE_DEVICES=$GPU SOE_RENDER_GPU=$GPU MUJOCO_GL=egl "$VENV" run_scout_align.py orchestrate \
     --agent "$CKPT" --config "$TCFG" --out-dir "$RD" \
     --n-scenes 4 --seed-base 42 --try-times 2 --n-shards 2 \
-    --horizon 300 --noise-scale 2.0 ) || exit 1
+    --horizon "$HORIZON" --noise-scale 2.0 ) || exit 1
 
 step "4/6 vis validate"
 "$VENV" "$SOE_SCRIPTS_2/vis_validate_soe.py" "$RD/demo.hdf5" || exit 1
@@ -67,7 +69,7 @@ step "5/6 extract + combine"
 
 step "6/6 retrain 2 epochs on demo_plus_core"
 TR2="$SMOKE_ROOT/train2"; rm -rf "$TR2"; mkdir -p "$TR2"
-"$VENV" "$SOE_SCRIPTS_2/gen_config_soe.py" --template "$SOE_REPO/simulation/config_template/can_soe.json" \
+"$VENV" "$SOE_SCRIPTS_2/gen_config_soe.py" --template "$SOE_REPO/simulation/config_template/${TASK}_soe.json" \
   --seed "$TSEED" --dataset "$RD/demo_plus_core.hdf5" --filter-key train_success \
   --log-dir "$TR2/logs/smoke2_seed_${TSEED}" --out "$TR2/cfg.json" \
   --num-epochs 2 --save-epochs 1 --num-workers 4 || exit 1
