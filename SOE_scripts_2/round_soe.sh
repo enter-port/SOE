@@ -219,4 +219,14 @@ if [ "$DRY_RUN" != "1" ]; then
   P10=$("$VENV" -c "import json;m=json.load(open('$RDIR/metrics.json'));print('%.3f'%m['pass_at_10'])" 2>/dev/null || echo NA)
   log "[2/2] eval result: SR=$SR pass@10=$P10 (run $WNAME)"
 fi
+
+# disk hygiene (2026-08-29, PRUNE_ACCUM=1 for the square campaign): round K's
+# demo_plus_core was just built FROM round K-1's (see extract+combine above);
+# the chain never reads $PREV_RDIR/demo_plus_core.hdf5 again. Raw demo.hdf5 +
+# metrics are kept forever; the accum is rebuildable via extract_and_combine.
+if [ "${PRUNE_ACCUM:-0}" = "1" ] && [ "$K" -ge 1 ] && [ "$DRY_RUN" != "1" ] \
+   && [ -f "$RDIR/demo_plus_core.hdf5" ]; then
+  rm -f "$PREV_RDIR/demo_plus_core.hdf5"
+  log "[prune] removed superseded $PREV_RDIR/demo_plus_core.hdf5 (raw demo.hdf5 kept)"
+fi
 log "=== ROUND $TASK soe-seed=$TSEED soe-round=$K TOTAL: $(( $(date +%s) - T0 ))s ==="

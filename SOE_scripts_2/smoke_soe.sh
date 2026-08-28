@@ -61,7 +61,11 @@ RD="$SMOKE_ROOT/rollout"; rm -rf "$RD"; mkdir -p "$RD"
     --horizon "$HORIZON" --noise-scale 2.0 ) || exit 1
 
 step "4/6 vis validate"
-"$VENV" "$SOE_SCRIPTS_2/vis_validate_soe.py" "$RD/demo.hdf5" || exit 1
+if [ "${VISGATE:-1}" = "1" ]; then
+  "$VENV" "$SOE_SCRIPTS_2/vis_validate_soe.py" "$RD/demo.hdf5" || exit 1
+else
+  echo "(VISGATE=0 -- gate skipped; can-calibrated thresholds false-flag square)"
+fi
 
 step "5/6 extract + combine"
 "$VENV" "$SOE_SCRIPTS_2/soe_round_step.py" extract_and_combine \
