@@ -103,6 +103,8 @@ $DATA_ROOT/can/
   VISGATE=0`. HORIZON=500 matches SCOUT's square eval horizon; VISGATE=0
   because vis_validate_soe's can-calibrated tstd>20 noise line false-kills
   healthy square frames (healthy square tstd 17.6-27.4, proven 08-26).
-- wandb `SQUARE-29-SOE-s{seed}`, chain data `soe_data/2026_8_29_soe/SOE-s{seed}`.
+- wandb `SQUARE-8-29-SOE-s{seed}` (renamed from SQUARE-29-SOE by user order
+  08-29; the first ~45min launch under the old name was stopped and redone),
+  chain data `soe_data/2026_8_29_soe/SOE-s{seed}`.
 - One-time data build:
   `make_core_soe.py --task square --src .../scout/data/robomimic/square/ph/image_v141.hdf5 --out-dir .../soe_data/datasets/square --seeds 233 2333 23333`
